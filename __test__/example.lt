@@ -1,16 +1,3 @@
-
-
-// Empty
-{
-
-}
-
-/*
-*
-*/ 
-
-
-def square(x){
-    return x * x;
-}
-;
+if(true)
+    if (false) return 100;
+    else return 100;

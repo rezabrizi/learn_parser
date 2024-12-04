@@ -14,11 +14,19 @@
 // ---------------------------------
 // Keywords
 \bdef\b     return 'DEF'
-\breturn\b     return 'RETURN'
+\breturn\b  return 'RETURN'
+\bif\b      return 'IF'
+\belse\b    return 'ELSE'
+
+\btrue\b    return 'TRUE'
+\bfalse\b   return 'FALSE'
+\bnull\b    return 'NULL'
 
 \d+         return 'NUMBER'
 \w+         return 'IDENTIFIER'
 
+[\=!]\=     return 'EQUALITY_OPERATOR'
+[><]\=?     return 'RELATIONAL_OPERATOR'
 
 [+\-]       return 'ADDITIVE_OPERATOR'
 [*/]        return 'MULTIPLICATIVE_OPERATOR'
@@ -33,21 +41,44 @@
 
     // Code included "as is"
 
-    function BinaryExpression(left, op, right) {
+    function BinaryExpression1(left, op, right) {
         return [op, left, right];
     }
     
-    function BinaryExpression1(left, op, right) {
-        return {type: 'BinaryExpression',
-        op,
+    function BinaryExpression(left, operator, right) {
+        return {
+        type: 'BinaryExpression',
+        operator,
         left,
         right,
         };
     }
 
+    function Literal(namePrefix, value){
+        return {
+            type: `${namePrefix}Literal`,
+            value,
+        };
+    }
+
+    function IfStatement(test, consequent, alternate){
+        return {
+            type: 'IfStatement',
+            test,
+            consequent,
+            alternate,
+        }
+    }
+
 
 %}
 
+/**
+* The `THEN` precedence is lower, than of 'ELSE', so
+* no shoft-reduce conflict, and no dangling else problem
+*/ 
+%nonassoc THEN
+%nonassoc ELSE
  
 // ---------------------------------
 // Syntactic grammar
@@ -76,6 +107,13 @@ Statement
     | BlockStatement
     | FunctionDeclaration
     | ReturnStatement
+    | IfStatement
+    ;
+
+IfStatement
+    : IF '(' Expression ')' Statement %prec THEN 
+    { $$ = IfStatement($3, $5) }
+    | IF '(' Expression ')' Statement ELSE Statement { $$ = IfStatement($3, $5, $7) }
     ;
 
 FunctionDeclaration
@@ -157,8 +195,21 @@ ExpressionStatement
     ;
 
 Expression
-    : AdditiveExpression
+    : EqualityExpression
     ;
+
+EqualityExpression
+    : RelationalExpression
+    | EqualityExpression EQUALITY_OPERATOR RelationalExpression
+        { $$ = BinaryExpression($1, $2, $3) }
+    ;
+
+RelationalExpression
+    : AdditiveExpression
+    | RelationalExpression RELATIONAL_OPERATOR AdditiveExpression
+        { $$ = BinaryExpression($1, $2, $3) }
+    ;
+
 
 AdditiveExpression
     : AdditiveExpression ADDITIVE_OPERATOR MultiplicativeExpression 
@@ -180,12 +231,25 @@ PrimaryExpression
 
 Literal 
     : NumericLiteral
+    | TrueLiteral
+    | FalseLiteral
+    | NullLiteral
+    ;
+
+TrueLiteral
+    : TRUE {$$ = Literal('Boolean', true) }
+    ;
+
+FalseLiteral
+    : FALSE {$$ = Literal('Boolean', false) }
+    ;
+
+NullLiteral
+    : NULL {$$ = Literal('Null', null) }
     ;
 
 NumericLiteral
-    : NUMBER {
-        $$ = Number($1)
-    }
+    : NUMBER { $$ = Literal('Numeric', Number($1)) }
     ;
 
 ParenthesizedExpression
